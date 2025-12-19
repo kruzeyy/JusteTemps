@@ -11,9 +11,21 @@ struct JusteTempsApp: App {
                 ContentView()
                     .environmentObject(screenTimeManager)
                     .environmentObject(authManager)
+                    .onOpenURL { url in
+                        // Gérer le callback OAuth (Google)
+                        Task {
+                            await authManager.handleOAuthCallback(url: url)
+                        }
+                    }
             } else {
                 LoginView()
                     .environmentObject(authManager)
+                    .onOpenURL { url in
+                        // Gérer le callback OAuth (Google)
+                        Task {
+                            await authManager.handleOAuthCallback(url: url)
+                        }
+                    }
             }
         }
     }

@@ -1,4 +1,6 @@
 import SwiftUI
+import FamilyControls
+import DeviceActivity
 
 struct ScreenTimeView: View {
     @EnvironmentObject var screenTimeManager: ScreenTimeManager
@@ -14,18 +16,24 @@ struct ScreenTimeView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 30) {
-                    // En-tête
-                    VStack(spacing: 10) {
-                        Text("JusteTemps")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Gérez votre temps d'écran")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 20)
+                // Afficher la vue d'autorisation si l'autorisation n'est pas accordée
+                if screenTimeManager.screenTimeAuthorizationStatus != .approved {
+                    ScreenTimeAuthorizationView()
+                        .environmentObject(screenTimeManager)
+                        .padding(.top, 50.0)
+                } else {
+                    VStack(spacing: 30) {
+                        // En-tête
+                        VStack(spacing: 10) {
+                            Text("JusteTemps")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                            
+                            Text("Gérez votre temps d'écran")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 20)
                     
                     // Carte principale du temps d'écran
                     VStack(spacing: 20) {
@@ -35,9 +43,27 @@ struct ScreenTimeView: View {
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                             
-                            Text(screenTimeManager.formatTime(screenTimeManager.totalScreenTime))
-                                .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(.primary)
+                            // Afficher les vraies données si l'autorisation est accordée
+                            if screenTimeManager.screenTimeAuthorizationStatus == .approved {
+                                RealScreenTimeText(screenTimeManager: screenTimeManager)
+                            } else {
+                                Text(screenTimeManager.formatTime(screenTimeManager.totalScreenTime))
+                                    .font(.system(size: 48, weight: .bold))
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            // Indicateur si les données sont réelles
+                            if screenTimeManager.screenTimeAuthorizationStatus == .approved {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.caption)
+                                    Text("Données réelles Screen Time")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                                .padding(.top, 4)
+                            }
                         }
                         
                         // Barre de progression
@@ -134,8 +160,9 @@ struct ScreenTimeView: View {
                     .background(Color(.systemBackground))
                     .cornerRadius(15)
                     .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    }
+                    .padding()
                 }
-                .padding()
             }
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
@@ -295,6 +322,154 @@ struct LimitSettingsView: View {
                 minutes = (total % 3600) / 60
                 notificationsEnabled = screenTimeManager.notificationsEnabled
             }
+        }
+    }
+}
+
+struct ScreenTimeAuthorizationView: View {
+    @EnvironmentObject var screenTimeManager: ScreenTimeManager
+    @State private var isRequesting = false
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Image(systemName: "clock.badge.checkmark")
+                .font(.system(size: 80))
+                .foregroundColor(.blue)
+            
+            Text("Autorisation Screen Time requise")
+                .font(.title)
+                .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+            
+            Text("Pour afficher vos vraies données de temps d'écran, JusteTemps a besoin de votre autorisation pour accéder aux données Screen Time de votre iPhone.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            // Afficher l'erreur si elle existe (par exemple compte gratuit)
+            if let error = screenTimeManager.screenTimeError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+            }
+            
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(spacing: 12) {
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Statistiques précises")
+                            .font(.headline)
+                        Text("Affichez vos vraies données d'utilisation")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                HStack(spacing: 12) {
+                    Image(systemName: "shield.fill")
+                        .foregroundColor(.green)
+                        .font(.title3)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Respect de la vie privée")
+                            .font(.headline)
+                        Text("Vos données restent sur votre appareil")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                HStack(spacing: 12) {
+                    Image(systemName: "bell.fill")
+                        .foregroundColor(.orange)
+                        .font(.title3)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Notifications personnalisées")
+                            .font(.headline)
+                        Text("Soyez alerté lorsque vous atteignez vos limites")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(15)
+            .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+            
+            Button(action: {
+                Task {
+                    isRequesting = true
+                    await screenTimeManager.requestScreenTimeAuthorization()
+                    isRequesting = false
+                }
+            }) {
+                HStack {
+                    if isRequesting {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: "checkmark.shield.fill")
+                        Text("Autoriser l'accès")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(15)
+            }
+            .disabled(isRequesting)
+            .padding(.horizontal)
+            
+            Button(action: {
+                screenTimeManager.openScreenTimeSettings()
+            }) {
+                Text("Ouvrir les paramètres")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+            }
+        }
+        .padding()
+    }
+}
+
+// Vue simplifiée pour afficher les vraies données de Screen Time
+// Lit directement depuis UserDefaults partagé (sauvegardé par l'extension DeviceActivityReport)
+struct RealScreenTimeText: View {
+    @ObservedObject var screenTimeManager: ScreenTimeManager
+    @State private var realTotalTime: TimeInterval = 0
+    
+    var body: some View {
+        Text(screenTimeManager.formatTime(realTotalTime > 0 ? realTotalTime : screenTimeManager.totalScreenTime))
+            .font(.system(size: 48, weight: .bold))
+            .foregroundColor(.primary)
+            .onAppear {
+                loadRealData()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScreenTimeDataUpdated"))) { _ in
+                loadRealData()
+            }
+    }
+    
+    private func loadRealData() {
+        // Charger depuis UserDefaults partagé (sauvegardé par l'extension DeviceActivityReport)
+        let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? UserDefaults.standard
+        
+        // Essayer d'abord les vraies données depuis l'extension
+        if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {
+            realTotalTime = totalTime
+        } else if let totalTime = sharedDefaults.object(forKey: "totalScreenTimeToday") as? TimeInterval, totalTime > 0 {
+            // Fallback : données collectées par le monitor
+            realTotalTime = totalTime
         }
     }
 }

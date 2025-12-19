@@ -51,6 +51,7 @@ struct LoginView: View {
                                 TextField("Nom", text: $name)
                                     .textContentType(.name)
                                     .autocapitalization(.words)
+                                    .foregroundColor(.black)
                             }
                             .padding()
                             .background(Color.white)
@@ -67,6 +68,7 @@ struct LoginView: View {
                                 .textContentType(.emailAddress)
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
+                                .foregroundColor(.black)
                         }
                         .padding()
                         .background(Color.white)
@@ -81,9 +83,11 @@ struct LoginView: View {
                             if showPassword {
                                 TextField("Mot de passe", text: $password)
                                     .textContentType(isSignUp ? .newPassword : .password)
+                                    .foregroundColor(.black)
                             } else {
                                 SecureField("Mot de passe", text: $password)
                                     .textContentType(isSignUp ? .newPassword : .password)
+                                    .foregroundColor(.black)
                             }
                             
                             Button(action: {
@@ -166,32 +170,44 @@ struct LoginView: View {
                                 Image(systemName: "globe")
                                     .font(.title3)
                                 
-                                Text("Continuer avec Google")
-                                    .fontWeight(.medium)
+                                if authManager.isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text("Continuer avec Google")
+                                        .fontWeight(.medium)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.white)
+                            .background(authManager.isLoading ? Color.gray.opacity(0.3) : Color.white)
                             .foregroundColor(.black)
                             .cornerRadius(12)
                         }
                         .disabled(authManager.isLoading)
                         
-                        // Bouton Apple
+                        // Bouton Apple (fonctionne pour connexion et inscription)
                         SignInWithAppleButton(
                             onRequest: { request in
+                                // Demander le nom complet et l'email (important pour l'inscription)
                                 request.requestedScopes = [.fullName, .email]
                             },
                             onCompletion: { result in
                                 switch result {
                                 case .success(let authorization):
-                                    authManager.signInWithApple(authorization: authorization)
+                                    Task {
+                                        await authManager.signInWithApple(authorization: authorization)
+                                    }
                                 case .failure(let error):
-                                    authManager.errorMessage = "Erreur Apple: \(error.localizedDescription)"
+                                    Task { @MainActor in
+                                        authManager.errorMessage = "Erreur Apple: \(error.localizedDescription)"
+                                    }
                                 }
                             }
                         )
+                        .signInWithAppleButtonStyle(.white)
                         .frame(height: 50)
+                        .frame(maxWidth: .infinity)
                         .cornerRadius(12)
                         .disabled(authManager.isLoading)
                     }

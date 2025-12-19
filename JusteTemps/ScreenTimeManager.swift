@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import UserNotifications
+import FamilyControls
+import DeviceActivity
+import ManagedSettings
 
 class ScreenTimeManager: ObservableObject {
     @Published var totalScreenTime: TimeInterval = 0 // en secondes
@@ -8,18 +11,105 @@ class ScreenTimeManager: ObservableObject {
     @Published var apps: [AppInfo] = []
     @Published var dailyStats: [DailyStats] = []
     @Published var notificationsEnabled: Bool = true
+    @Published var screenTimeAuthorizationStatus: AuthorizationStatus = .notDetermined
+    @Published var screenTimeError: String?
     
     private let userDefaults = UserDefaults.standard
     private let appsKey = "blockedApps"
     private let statsKey = "dailyStats"
     private let limitKey = "dailyLimit"
     private let notificationsKey = "notificationsEnabled"
+    private let authorizationCenter = AuthorizationCenter.shared
+    private let deviceActivityCenter = DeviceActivityCenter()
     
     init() {
         loadData()
-        generateSampleDataIfNeeded()
+        checkScreenTimeAuthorization()
         requestNotificationPermission()
-        startTracking()
+        setupScreenTimeNotifications()
+        if screenTimeAuthorizationStatus == .approved {
+            startRealTimeTracking()
+            startPeriodicDataRefresh()
+        } else {
+            // Utiliser les données simulées seulement si l'autorisation n'est pas accordée
+            generateSampleDataIfNeeded()
+            startTracking()
+        }
+    }
+    
+    // Configurer les notifications pour recevoir les données Screen Time
+    private func setupScreenTimeNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ScreenTimeDataUpdated"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let totalTime = notification.userInfo?["totalTime"] as? TimeInterval {
+                self?.updateScreenTimeFromDeviceActivity(totalTime: totalTime)
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppUsageDataUpdated"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let appUsage = notification.userInfo?["appUsage"] as? [String: TimeInterval] {
+                self?.updateAppUsageFromDeviceActivity(appUsage: appUsage)
+            }
+        }
+    }
+    
+    // Mettre à jour le temps d'écran depuis DeviceActivity
+    private func updateScreenTimeFromDeviceActivity(totalTime: TimeInterval) {
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        // Trouver ou créer les stats d'aujourd'hui
+        if let index = dailyStats.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            dailyStats[index].totalScreenTime = totalTime
+        } else {
+            var newStats = DailyStats(date: today)
+            newStats.totalScreenTime = totalTime
+            dailyStats.append(newStats)
+        }
+        
+        updateTodayScreenTime()
+        saveData()
+    }
+    
+    // Mettre à jour l'utilisation par application depuis DeviceActivity
+    private func updateAppUsageFromDeviceActivity(appUsage: [String: TimeInterval]) {
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        // Trouver ou créer les stats d'aujourd'hui
+        if let index = dailyStats.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            // Mettre à jour l'utilisation par application
+            for (bundleId, time) in appUsage {
+                dailyStats[index].appUsage[bundleId] = time
+            }
+        } else {
+            var newStats = DailyStats(date: today)
+            newStats.appUsage = appUsage
+            dailyStats.append(newStats)
+        }
+        
+        updateTodayScreenTime()
+        saveData()
+    }
+    
+    // Fonction publique pour mettre à jour depuis DeviceActivityReportView
+    func updateRealScreenTime(totalTime: TimeInterval) {
+        updateScreenTimeFromDeviceActivity(totalTime: totalTime)
+    }
+    
+    // Démarrer le rafraîchissement périodique des données
+    private func startPeriodicDataRefresh() {
+        // Rafraîchir les données toutes les 5 minutes
+        Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            guard let self = self, self.screenTimeAuthorizationStatus == .approved else { return }
+            // Recharger les données depuis UserDefaults
+            self.loadRealScreenTimeData()
+        }
     }
     
     // Charger les données sauvegardées
@@ -155,8 +245,13 @@ class ScreenTimeManager: ObservableObject {
         saveData()
     }
     
-    // Générer des données d'exemple si nécessaire
+    // Générer des données d'exemple si nécessaire (seulement si l'autorisation n'est pas accordée)
     private func generateSampleDataIfNeeded() {
+        // Ne générer des données d'exemple que si l'autorisation Screen Time n'est pas accordée
+        guard screenTimeAuthorizationStatus != .approved else {
+            return
+        }
+        
         // Générer des données pour les 14 derniers jours si on n'a pas assez de données
         if dailyStats.count < 7 {
             let calendar = Calendar.current
@@ -193,13 +288,147 @@ class ScreenTimeManager: ObservableObject {
         }
     }
     
-    // Démarrer le suivi (simulation)
+    // Vérifier le statut d'autorisation Screen Time
+    func checkScreenTimeAuthorization() {
+        Task { @MainActor in
+            screenTimeAuthorizationStatus = authorizationCenter.authorizationStatus
+        }
+    }
+    
+    // Demander l'autorisation Screen Time
+    func requestScreenTimeAuthorization() async {
+        // Note: Family Controls nécessite un compte Apple Developer payant
+        // Si vous utilisez un compte gratuit, cette fonctionnalité ne sera pas disponible
+        #if !targetEnvironment(simulator)
+        do {
+            try await authorizationCenter.requestAuthorization(for: .individual)
+            await MainActor.run {
+                checkScreenTimeAuthorization()
+                if screenTimeAuthorizationStatus == .approved {
+                    startRealTimeTracking()
+                }
+            }
+        } catch {
+            await MainActor.run {
+                print("Erreur lors de la demande d'autorisation Screen Time: \(error)")
+                // En cas d'erreur (par exemple compte gratuit), utiliser les données simulées
+                screenTimeError = "L'accès à Screen Time nécessite un compte Apple Developer payant ($99/an). L'application utilisera des données simulées."
+                // Continuer avec les données simulées
+                generateSampleDataIfNeeded()
+                startTracking()
+            }
+        }
+        #else
+        await MainActor.run {
+            errorMessage = "L'API FamilyControls ne fonctionne pas dans le simulateur. Testez sur un appareil réel."
+        }
+        #endif
+    }
+    
+    // Démarrer le suivi en temps réel avec DeviceActivity
+    private func startRealTimeTracking() {
+        // Créer un DeviceActivitySchedule pour surveiller toute la journée
+        // Note: Ce schedule surveillera l'activité et le DeviceActivityMonitor
+        // sera appelé aux moments appropriés (début/fin d'intervalle, événements)
+        
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59),
+            repeats: true,
+            warningTime: nil
+        )
+        
+        // Créer un nom d'activité pour identifier cette surveillance
+        let activityName = DeviceActivityName("today")
+        
+        // Démarrer la surveillance
+        // Signature correcte: startMonitoring(_ activity: DeviceActivityName, during: DeviceActivitySchedule)
+        do {
+            try deviceActivityCenter.startMonitoring(activityName, during: schedule)
+            print("✅ Surveillance DeviceActivity démarrée")
+        } catch {
+            print("❌ Erreur lors du démarrage de la surveillance DeviceActivity: \(error)")
+        }
+        
+        // Charger les données depuis les données sauvegardées
+        // (Les vraies données seront collectées par le DeviceActivityMonitor)
+        loadRealScreenTimeData()
+    }
+    
+    // Charger les vraies données de temps d'écran
+    private func loadRealScreenTimeData() {
+        // Essayer de charger depuis UserDefaults partagé (si App Groups est configuré)
+        // Sinon utiliser UserDefaults standard
+        let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? userDefaults
+        
+        // Charger les données sauvegardées depuis l'extension DeviceActivityReport
+        if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {
+            updateScreenTimeFromDeviceActivity(totalTime: totalTime)
+        } else if let totalTime = sharedDefaults.object(forKey: "totalScreenTimeToday") as? TimeInterval, totalTime > 0 {
+            // Fallback : données collectées par le monitor
+            updateScreenTimeFromDeviceActivity(totalTime: totalTime)
+        } else {
+            // Si pas de données sauvegardées, essayer de lire depuis Screen Time directement
+            Task {
+                await fetchRealScreenTimeFromSystem()
+            }
+        }
+        
+        // Mettre à jour les données périodiquement
+        Task {
+            await updateRealTimeData()
+        }
+    }
+    
+    // Essayer de récupérer les vraies données depuis le système Screen Time
+    private func fetchRealScreenTimeFromSystem() async {
+        // Note: Pour obtenir les vraies données historiques, il faut utiliser DeviceActivityReport
+        // qui nécessite une extension séparée. Cependant, on peut essayer d'utiliser
+        // les données disponibles via le monitor qui sont collectées en temps réel.
+        
+        // Pour l'instant, on utilise les données collectées par le monitor
+        // qui sont sauvegardées dans UserDefaults
+        await MainActor.run {
+            updateTodayScreenTime()
+        }
+    }
+    
+    // Mettre à jour les données en temps réel
+    private func updateRealTimeData() async {
+        // Utiliser DeviceActivityReport pour obtenir les vraies données
+        // Note: Cela nécessite que l'extension DeviceActivityReport soit configurée
+        // Pour l'instant, on utilise les données collectées par le monitor
+        
+        await MainActor.run {
+            // Mettre à jour avec les données sauvegardées localement
+            // Le DeviceActivityMonitor et les rapports enregistreront les données
+            updateTodayScreenTime()
+        }
+        
+        // Essayer de récupérer les données via DeviceActivityReport
+        await fetchDeviceActivityReport()
+    }
+    
+    // Récupérer les données depuis DeviceActivityReport
+    private func fetchDeviceActivityReport() async {
+        // Note: DeviceActivityReport nécessite une extension séparée pour fonctionner
+        // Les données sont collectées via le DeviceActivityMonitor qui les sauvegarde
+        // dans UserDefaults. On les lit depuis là.
+        
+        // Les données sont déjà chargées via loadRealScreenTimeData()
+        // Cette fonction est là pour référence future si on crée une extension DeviceActivityReport
+        
+        // Pour l'instant, on utilise les données collectées par le monitor
+        // qui sont sauvegardées dans UserDefaults et mises à jour via les notifications
+    }
+    
+    // Démarrer le suivi (simulation - utilisé seulement si l'autorisation n'est pas accordée)
     private func startTracking() {
         // Simuler l'ajout de temps d'écran toutes les minutes
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             // Simulation : ajouter 30 secondes de temps d'écran toutes les minutes
             // En production, cela devrait être remplacé par un vrai suivi
-            if let self = self, !self.apps.isEmpty {
+            if let self = self, !self.apps.isEmpty, self.screenTimeAuthorizationStatus != .approved {
                 let randomApp = self.apps.randomElement()!
                 self.addScreenTime(30, for: randomApp.bundleId)
             }

@@ -92,3 +92,16 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
+# Environment variables (si vous utilisez .env)
+.env
+.env.local
+
+# Clés privées Apple
+*.p8
+AuthKey_*.p8
+
+# Fichiers sensibles avec clés
+# Note: Info.plist contient des clés - ne pas commit le vrai fichier
+# Utiliser Info.plist.example comme template
+JusteTemps/Info.plist
+
