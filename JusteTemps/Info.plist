@@ -50,8 +50,14 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Nous utilisons les notifications pour vous alerter lorsque vous atteignez vos limites de temps d'écran.</string>
+	<key>NSFamilyControlsUsageDescription</key>
+	<string>JusteTemps a besoin de l'accès aux données de temps d'écran pour afficher vos statistiques d'utilisation et vous aider à gérer votre temps passé sur votre téléphone.</string>
 	<key>GOOGLE_CLIENT_ID</key>
 	<string>VOTRE_CLIENT_ID_GOOGLE</string>
+	<key>SUPABASE_URL</key>
+	<string>https://wlgrhzbpzdclexucwydp.supabase.co</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsZ3JoemJwemRjbGV4dWN3eWRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwNzg1NDAsImV4cCI6MjA4MTY1NDU0MH0.IzreMUIZUbDUxLeZrAbDX7MfN_rRlDwNigDQhpGhrxM</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

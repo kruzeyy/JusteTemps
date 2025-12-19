@@ -40,6 +40,12 @@ class AuthManager: ObservableObject {
                     await loadUserFromSupabase()
                 case .passwordRecovery:
                     break
+                case .userDeleted:
+                    await MainActor.run {
+                        self.signOut()
+                    }
+                case .mfaChallengeVerified:
+                    await loadUserFromSupabase()
                 @unknown default:
                     break
                 }
@@ -429,7 +435,8 @@ class AuthManager: ObservableObject {
             }
             
             // Récupérer l'email depuis les credentials Apple (disponible seulement lors de la première connexion)
-            let appleEmail = appleIDCredential.email
+            // Note: L'email est déjà inclus dans le token Apple, donc on n'a pas besoin de le stocker séparément
+            _ = appleIDCredential.email
             
             // Connexion/Inscription avec Supabase via Apple
             // Si l'utilisateur n'existe pas, Supabase le créera automatiquement

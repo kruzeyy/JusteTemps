@@ -21,6 +21,7 @@ class ScreenTimeManager: ObservableObject {
     private let notificationsKey = "notificationsEnabled"
     private let authorizationCenter = AuthorizationCenter.shared
     private let deviceActivityCenter = DeviceActivityCenter()
+    private let managedSettingsStore = ManagedSettingsStore()
     
     init() {
         loadData()
@@ -112,6 +113,9 @@ class ScreenTimeManager: ObservableObject {
         }
     }
     
+    // Stocker la sélection FamilyActivity (ne peut pas être sérialisée directement)
+    private var storedActivitySelection: FamilyActivitySelection?
+    
     // Charger les données sauvegardées
     func loadData() {
         if let data = userDefaults.data(forKey: appsKey),
@@ -147,6 +151,11 @@ class ScreenTimeManager: ObservableObject {
         
         // Calculer le temps d'écran total d'aujourd'hui
         updateTodayScreenTime()
+        
+        // Appliquer le blocage des applications si des apps sont déjà bloquées
+        if screenTimeAuthorizationStatus == .approved {
+            applyAppBlocking()
+        }
     }
     
     // Sauvegarder les données
@@ -212,9 +221,95 @@ class ScreenTimeManager: ObservableObject {
             apps[index].isBlocked.toggle()
             saveData()
             
+            // Appliquer ou retirer le blocage avec ManagedSettings
             if apps[index].isBlocked {
+                applyAppBlocking()
                 sendAppBlockedNotification(app: apps[index])
+            } else {
+                // Si l'app n'est plus bloquée, réappliquer le blocage avec les autres apps bloquées
+                applyAppBlocking()
             }
+        }
+    }
+    
+    // Débloquer toutes les applications
+    func unblockAllApps() {
+        // Mettre toutes les applications à non bloquées
+        for index in apps.indices {
+            apps[index].isBlocked = false
+        }
+        saveData()
+        
+        // Réinitialiser le blocage ManagedSettings
+        managedSettingsStore.shield.applications = nil
+        storedActivitySelection = nil
+        
+        print("✅ Toutes les applications ont été débloquées")
+    }
+    
+    // Définir la sélection FamilyActivity (appelé après sélection avec FamilyActivityPicker)
+    func setActivitySelection(_ selection: FamilyActivitySelection, for app: AppInfo) {
+        // Stocker la sélection en mémoire (ne peut pas être sérialisée)
+        storedActivitySelection = selection
+        
+        // Marquer que l'app a une sélection (utiliser un flag simple)
+        if let index = apps.firstIndex(where: { $0.id == app.id }) {
+            // On ne peut pas stocker le token directement, donc on utilise un flag
+            // pour indiquer que l'utilisateur a sélectionné cette app
+            apps[index].applicationTokenData = Data([1]) // Flag simple pour indiquer qu'il y a une sélection
+            saveData()
+            
+            // Appliquer le blocage si l'application est marquée comme bloquée
+            if apps[index].isBlocked {
+                applyAppBlocking(selection: selection)
+            }
+        }
+    }
+    
+    // Appliquer le blocage des applications avec ManagedSettings
+    func applyBlocking(selection: FamilyActivitySelection) {
+        guard screenTimeAuthorizationStatus == .approved else {
+            print("⚠️ Autorisation Screen Time requise pour bloquer les applications")
+            return
+        }
+        
+        // Stocker la sélection pour pouvoir la réutiliser
+        storedActivitySelection = selection
+        
+        // Appliquer le blocage avec ManagedSettings
+        if !selection.applicationTokens.isEmpty {
+            let blockedTokens = selection.applicationTokens
+            managedSettingsStore.shield.applications = blockedTokens
+            print("✅ \(blockedTokens.count) application(s) bloquée(s)")
+        } else {
+            managedSettingsStore.shield.applications = nil
+            print("⚠️ Aucune application sélectionnée")
+        }
+    }
+    
+    // Appliquer le blocage des applications avec ManagedSettings (méthode privée pour usage interne)
+    private func applyAppBlocking(selection: FamilyActivitySelection? = nil) {
+        guard screenTimeAuthorizationStatus == .approved else {
+            print("⚠️ Autorisation Screen Time requise pour bloquer les applications")
+            return
+        }
+        
+        // Utiliser la sélection fournie ou la sélection stockée
+        let activitySelection = selection ?? storedActivitySelection
+        
+        // Si on a une sélection, utiliser ses tokens pour bloquer
+        if let selection = activitySelection, !selection.applicationTokens.isEmpty {
+            let blockedTokens = selection.applicationTokens
+            
+            // Utiliser shield.applications qui accepte Set<ApplicationToken>
+            // Cela va bloquer les applications avec un bouclier
+            managedSettingsStore.shield.applications = blockedTokens
+            
+            print("✅ \(blockedTokens.count) application(s) bloquée(s)")
+        } else {
+            // Pas de sélection disponible, réinitialiser le blocage
+            managedSettingsStore.shield.applications = nil
+            print("⚠️ Aucune sélection disponible pour le blocage")
         }
     }
     
@@ -359,7 +454,13 @@ class ScreenTimeManager: ObservableObject {
     private func loadRealScreenTimeData() {
         // Essayer de charger depuis UserDefaults partagé (si App Groups est configuré)
         // Sinon utiliser UserDefaults standard
-        let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? userDefaults
+        // Utiliser un fallback silencieux pour éviter les warnings système
+        let sharedDefaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
+            sharedDefaults = suiteDefaults
+        } else {
+            sharedDefaults = userDefaults
+        }
         
         // Charger les données sauvegardées depuis l'extension DeviceActivityReport
         if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {

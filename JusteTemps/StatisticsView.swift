@@ -13,6 +13,13 @@ struct StatisticsView: View {
                         Text("Statistiques")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.purple, Color.pink],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
                         
                         Text("Analysez votre utilisation")
                             .font(.subheadline)
@@ -97,6 +104,16 @@ struct WeeklyChartView: View {
                 }
             }
             .frame(height: 200)
+            .padding()
+            .background(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .cornerRadius(15)
+            .shadow(color: Color.blue.opacity(0.1), radius: 5, x: 0, y: 2)
             .chartYAxis {
                 AxisMarks(position: .leading) { value in
                     AxisGridLine()
@@ -117,9 +134,15 @@ struct WeeklyChartView: View {
             .padding()
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(
+            LinearGradient(
+                colors: [Color.blue.opacity(0.1), Color.cyan.opacity(0.05)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.blue.opacity(0.15), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -150,6 +173,7 @@ struct AppsChartView: View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Top 5 applications aujourd'hui")
                 .font(.headline)
+                .foregroundColor(.primary)
                 .padding(.horizontal)
             
             if topApps.isEmpty {
@@ -196,9 +220,15 @@ struct AppsChartView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(
+            LinearGradient(
+                colors: [Color.orange.opacity(0.15), Color.yellow.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.orange.opacity(0.2), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -236,6 +266,7 @@ struct AppsPieChartView: View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Répartition par application")
                 .font(.headline)
+                .foregroundColor(.primary)
                 .padding(.horizontal)
             
             if appUsageData.isEmpty {
@@ -289,9 +320,15 @@ struct AppsPieChartView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(
+            LinearGradient(
+                colors: [Color.pink.opacity(0.15), Color.purple.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.pink.opacity(0.2), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -330,6 +367,7 @@ struct SummaryStatsView: View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Résumé")
                 .font(.headline)
+                .foregroundColor(.primary)
                 .padding(.horizontal)
             
             LazyVGrid(columns: [
@@ -371,9 +409,15 @@ struct SummaryStatsView: View {
             .padding()
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(
+            LinearGradient(
+                colors: [Color.green.opacity(0.15), Color.mint.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.green.opacity(0.2), radius: 10, x: 0, y: 5)
     }
 }
 
@@ -407,8 +451,15 @@ struct StatCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.1))
+        .background(
+            LinearGradient(
+                colors: [color.opacity(0.2), color.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(12)
+        .shadow(color: color.opacity(0.2), radius: 3, x: 0, y: 2)
     }
 }
 
@@ -424,6 +475,7 @@ struct TrendChartView: View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Tendance (14 derniers jours)")
                 .font(.headline)
+                .foregroundColor(.primary)
                 .padding(.horizontal)
             
             if trendData.isEmpty {
@@ -474,13 +526,18 @@ struct TrendChartView: View {
                         }
                     }
                 }
-                .padding()
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(
+            LinearGradient(
+                colors: [Color.cyan.opacity(0.15), Color.blue.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .shadow(color: Color.cyan.opacity(0.2), radius: 10, x: 0, y: 5)
     }
 }
 

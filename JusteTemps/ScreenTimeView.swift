@@ -13,9 +13,22 @@ struct ScreenTimeView: View {
         return min(screenTimeManager.totalScreenTime / screenTimeManager.dailyLimit, 1.0)
     }
     
+    // Applications triées par temps d'utilisation (ordre décroissant)
+    var topAppsByUsage: [AppInfo] {
+        screenTimeManager.apps.sorted { app1, app2 in
+            let time1 = screenTimeManager.getAppTimeToday(app1)
+            let time2 = screenTimeManager.getAppTimeToday(app2)
+            return time1 > time2
+        }.prefix(5).map { $0 }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
+                // Fond coloré pour la page
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+                    .frame(height: 0)
                 // Afficher la vue d'autorisation si l'autorisation n'est pas accordée
                 if screenTimeManager.screenTimeAuthorizationStatus != .approved {
                     ScreenTimeAuthorizationView()
@@ -23,8 +36,18 @@ struct ScreenTimeView: View {
                         .padding(.top, 50.0)
                 } else {
                     VStack(spacing: 30) {
-                        // En-tête
+                        // En-tête avec logo
                         VStack(spacing: 10) {
+                            // Logo
+                            if UIImage(named: "AppLogo") != nil {
+                                Image("AppLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 60, height: 60)
+                                    .cornerRadius(12)
+                                    .padding(.bottom, 5)
+                            }
+                            
                             Text("JusteTemps")
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
@@ -41,15 +64,16 @@ struct ScreenTimeView: View {
                         VStack(spacing: 8) {
                             Text("Temps d'écran aujourd'hui")
                                 .font(.headline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.white.opacity(0.9))
                             
                             // Afficher les vraies données si l'autorisation est accordée
                             if screenTimeManager.screenTimeAuthorizationStatus == .approved {
                                 RealScreenTimeText(screenTimeManager: screenTimeManager)
+                                    .foregroundColor(.white)
                             } else {
                                 Text(screenTimeManager.formatTime(screenTimeManager.totalScreenTime))
                                     .font(.system(size: 48, weight: .bold))
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(.white)
                             }
                             
                             // Indicateur si les données sont réelles
@@ -71,24 +95,35 @@ struct ScreenTimeView: View {
                             HStack {
                                 Text("Limite quotidienne")
                                     .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.white.opacity(0.9))
                                 
                                 Spacer()
                                 
                                 Text(screenTimeManager.formatTime(screenTimeManager.dailyLimit))
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
+                                    .foregroundColor(.white)
                             }
                             
                             GeometryReader { geometry in
                                 ZStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color.gray.opacity(0.2))
+                                        .fill(Color.white.opacity(0.3))
                                         .frame(height: 20)
                                     
                                     RoundedRectangle(cornerRadius: 10)
-                                        .fill(progressColor)
-                                        .frame(width: geometry.size.width * progress, height: 20)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: progress >= 1.0 
+                                                    ? [Color.red.opacity(0.9), Color.red.opacity(0.7)]  // Rouge si limite dépassée
+                                                    : progress >= 0.8 
+                                                        ? [Color.orange.opacity(0.9), Color.orange.opacity(0.7)]  // Orange si proche de la limite
+                                                        : [Color.white.opacity(0.9), Color.white.opacity(0.7)],  // Blanc sinon
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .frame(width: min(geometry.size.width * progress, geometry.size.width), height: 20)
                                         .animation(.spring(), value: progress)
                                 }
                             }
@@ -97,12 +132,14 @@ struct ScreenTimeView: View {
                             if progress >= 1.0 {
                                 Text("⚠️ Limite dépassée")
                                     .font(.caption)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(.white)
+                                    .fontWeight(.semibold)
                                     .padding(.top, 4)
                             } else if progress >= 0.8 {
                                 Text("⚠️ Presque à la limite")
                                     .font(.caption)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .fontWeight(.semibold)
                                     .padding(.top, 4)
                             }
                         }
@@ -117,19 +154,26 @@ struct ScreenTimeView: View {
                         HStack {
                             Text("Applications les plus utilisées")
                                 .font(.headline)
+                                .foregroundColor(.primary)
                             
                             Spacer()
                         }
                         
-                        ForEach(Array(screenTimeManager.apps.prefix(5))) { app in
+                        ForEach(topAppsByUsage) { app in
                             AppUsageRow(app: app)
                                 .environmentObject(screenTimeManager)
                         }
                     }
                     .padding()
-                    .background(Color(.systemBackground))
+                    .background(
+                        LinearGradient(
+                            colors: [Color.orange.opacity(0.15), Color.pink.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .cornerRadius(20)
-                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    .shadow(color: Color.orange.opacity(0.2), radius: 10, x: 0, y: 5)
                     
                     // Bouton pour ouvrir les paramètres Screen Time
                     Button(action: {
@@ -141,9 +185,16 @@ struct ScreenTimeView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.blue, Color.cyan],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .foregroundColor(.white)
                         .cornerRadius(15)
+                        .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
                     }
                     .padding(.horizontal)
                     
@@ -151,15 +202,22 @@ struct ScreenTimeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("💡 Astuce")
                             .font(.headline)
+                            .foregroundColor(.primary)
                         
                         Text("Pour bloquer réellement des applications, utilisez les paramètres Screen Time d'iOS. Cette application vous aide à suivre et gérer votre utilisation.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     .padding()
-                    .background(Color(.systemBackground))
+                    .background(
+                        LinearGradient(
+                            colors: [Color.green.opacity(0.1), Color.mint.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .cornerRadius(15)
-                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    .shadow(color: Color.green.opacity(0.15), radius: 5, x: 0, y: 2)
                     }
                     .padding()
                 }
@@ -462,7 +520,13 @@ struct RealScreenTimeText: View {
     
     private func loadRealData() {
         // Charger depuis UserDefaults partagé (sauvegardé par l'extension DeviceActivityReport)
-        let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? UserDefaults.standard
+        // Utiliser un fallback silencieux pour éviter les warnings système
+        let sharedDefaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
+            sharedDefaults = suiteDefaults
+        } else {
+            sharedDefaults = UserDefaults.standard
+        }
         
         // Essayer d'abord les vraies données depuis l'extension
         if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {

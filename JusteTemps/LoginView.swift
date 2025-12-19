@@ -25,9 +25,20 @@ struct LoginView: View {
                     
                     // Logo et titre
                     VStack(spacing: 10) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white)
+                        // Logo personnalisé (utilise AppLogo si disponible, sinon icône système)
+                        Group {
+                            if UIImage(named: "AppLogo") != nil {
+                                Image("AppLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 80, height: 80)
+                                    .cornerRadius(16)
+                            } else {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.white)
+                            }
+                        }
                         
                         Text("JusteTemps")
                             .font(.system(size: 40, weight: .bold))

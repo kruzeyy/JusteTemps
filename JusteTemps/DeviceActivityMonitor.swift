@@ -18,7 +18,13 @@ class MyMonitor: DeviceActivityMonitor {
         
         // Réinitialiser les données pour le nouveau jour
         if activity == DeviceActivityName("today") {
-            let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? UserDefaults.standard
+            // Utiliser UserDefaults partagé si disponible, sinon standard (fallback silencieux)
+            let sharedDefaults: UserDefaults
+            if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
+                sharedDefaults = suiteDefaults
+            } else {
+                sharedDefaults = UserDefaults.standard
+            }
             sharedDefaults.set(0, forKey: "todayStartTime")
             sharedDefaults.set(Date().timeIntervalSince1970, forKey: "intervalStartTime")
             sharedDefaults.synchronize()
@@ -32,7 +38,13 @@ class MyMonitor: DeviceActivityMonitor {
         
         // Calculer le temps total écoulé
         if activity == DeviceActivityName("today") {
-            let sharedDefaults = UserDefaults(suiteName: "group.com.justetemps.app") ?? UserDefaults.standard
+            // Utiliser UserDefaults partagé si disponible, sinon standard (fallback silencieux)
+            let sharedDefaults: UserDefaults
+            if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
+                sharedDefaults = suiteDefaults
+            } else {
+                sharedDefaults = UserDefaults.standard
+            }
             if let startTime = sharedDefaults.object(forKey: "intervalStartTime") as? TimeInterval {
                 let elapsed = Date().timeIntervalSince1970 - startTime
                 let currentTotal = sharedDefaults.double(forKey: "totalScreenTimeToday")

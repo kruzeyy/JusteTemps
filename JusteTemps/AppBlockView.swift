@@ -1,59 +1,111 @@
 import SwiftUI
+import FamilyControls
 
 struct AppBlockView: View {
     @EnvironmentObject var screenTimeManager: ScreenTimeManager
-    @State private var showingAddApp = false
-    @State private var newAppName = ""
-    @State private var newAppBundleId = ""
+    @State private var showingAppPicker = false
+    @State private var selectedActivity: FamilyActivitySelection = FamilyActivitySelection()
     
     var body: some View {
         NavigationView {
-            List {
-                Section(header: Text("Applications suivies")) {
-                    ForEach(screenTimeManager.apps) { app in
-                        AppRow(app: app)
-                            .environmentObject(screenTimeManager)
-                    }
-                    .onDelete(perform: deleteApps)
-                }
-                
-                Section(header: Text("Actions")) {
-                    Button(action: {
-                        showingAddApp = true
-                    }) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Ajouter une application")
-                        }
-                    }
+            VStack(spacing: 30) {
+                // Icône et description
+                VStack(spacing: 15) {
+                    Image(systemName: "app.badge.checkmark")
+                        .font(.system(size: 80))
+                        .foregroundColor(.blue)
                     
-                    Button(action: {
-                        screenTimeManager.openScreenTimeSettings()
-                    }) {
-                        HStack {
-                            Image(systemName: "gear")
-                            Text("Configurer Screen Time")
-                        }
-                    }
-                }
-                
-                Section(header: Text("Information")) {
-                    Text("Pour bloquer réellement des applications, vous devez utiliser les paramètres Screen Time d'iOS. Cette application vous aide à suivre et gérer votre utilisation.")
-                        .font(.caption)
+                    Text("Bloquer des applications")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("Sélectionnez les applications que vous souhaitez bloquer pour limiter votre temps d'écran")
+                        .font(.body)
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                .padding(.top, 60)
+                
+                Spacer()
+                
+                // Bouton principal pour bloquer des applications
+                Button(action: {
+                    showingAppPicker = true
+                }) {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                            .font(.title3)
+                        Text("Bloquer des applications")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [Color.red, Color.orange],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(15)
+                    .shadow(color: Color.red.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .padding(.horizontal, 30)
+                
+                // Bouton pour débloquer toutes les applications
+                Button(action: {
+                    screenTimeManager.unblockAllApps()
+                }) {
+                    HStack {
+                        Image(systemName: "lock.open.fill")
+                            .font(.title3)
+                        Text("Débloquer toutes les applications")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemGray5))
+                    .foregroundColor(.primary)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal, 30)
+                
+                // Bouton pour configurer Screen Time
+                Button(action: {
+                    screenTimeManager.openScreenTimeSettings()
+                }) {
+                    HStack {
+                        Image(systemName: "gear")
+                        Text("Configurer Screen Time")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemGray5))
+                    .foregroundColor(.primary)
+                    .cornerRadius(15)
+                }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 40)
+            }
+            .background(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            )
+            .navigationTitle("Applications")
+            .familyActivityPicker(isPresented: $showingAppPicker, selection: $selectedActivity)
+            .onChange(of: selectedActivity) { oldValue, newValue in
+                // Quand l'utilisateur sélectionne des applications
+                if !newValue.applicationTokens.isEmpty {
+                    // Appliquer le blocage directement avec la sélection
+                    screenTimeManager.applyBlocking(selection: newValue)
                 }
             }
-            .navigationTitle("Applications")
-            .sheet(isPresented: $showingAddApp) {
-                AddAppView()
-                    .environmentObject(screenTimeManager)
-            }
-        }
-    }
-    
-    func deleteApps(at offsets: IndexSet) {
-        for index in offsets {
-            screenTimeManager.removeApp(screenTimeManager.apps[index])
         }
     }
 }
@@ -62,13 +114,19 @@ struct AppRow: View {
     let app: AppInfo
     @EnvironmentObject var screenTimeManager: ScreenTimeManager
     @State private var showingLimitPicker = false
+    @State private var showingAppPicker = false
+    @State private var selectedActivity: FamilyActivitySelection = FamilyActivitySelection()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 // Icône de l'application (simulée)
                 Circle()
-                    .fill(app.isBlocked ? Color.red.opacity(0.2) : Color.blue.opacity(0.2))
+                    .fill(
+                        app.isBlocked ? 
+                        LinearGradient(colors: [Color.red.opacity(0.3), Color.orange.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                        LinearGradient(colors: [Color.blue.opacity(0.3), Color.cyan.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
                     .frame(width: 50, height: 50)
                     .overlay(
                         Text(String(app.name.prefix(1)))
@@ -98,7 +156,18 @@ struct AppRow: View {
             // Toggle de blocage
             Toggle(isOn: Binding(
                 get: { app.isBlocked },
-                set: { _ in screenTimeManager.toggleAppBlock(app) }
+                set: { shouldBlock in
+                    if shouldBlock {
+                        // Si l'app n'a pas de token, ouvrir le sélecteur d'applications
+                        if app.applicationTokenData == nil {
+                            showingAppPicker = true
+                        } else {
+                            screenTimeManager.toggleAppBlock(app)
+                        }
+                    } else {
+                        screenTimeManager.toggleAppBlock(app)
+                    }
+                }
             )) {
                 Text(app.isBlocked ? "Bloquée" : "Non bloquée")
                     .font(.subheadline)
@@ -116,7 +185,13 @@ struct AppRow: View {
                 .font(.subheadline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.1))
+                .background(
+                    LinearGradient(
+                        colors: [Color.blue.opacity(0.2), Color.purple.opacity(0.15)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .foregroundColor(.blue)
                 .cornerRadius(8)
             }
@@ -125,6 +200,15 @@ struct AppRow: View {
         .sheet(isPresented: $showingLimitPicker) {
             AppLimitPickerView(app: app)
                 .environmentObject(screenTimeManager)
+        }
+        .familyActivityPicker(isPresented: $showingAppPicker, selection: $selectedActivity)
+        .onChange(of: selectedActivity) { oldValue, newValue in
+            // Quand l'utilisateur sélectionne des applications
+            if !newValue.applicationTokens.isEmpty {
+                screenTimeManager.setActivitySelection(newValue, for: app)
+                // Activer le blocage après avoir défini la sélection
+                screenTimeManager.toggleAppBlock(app)
+            }
         }
     }
 }

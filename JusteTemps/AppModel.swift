@@ -7,14 +7,21 @@ struct AppInfo: Identifiable, Codable {
     var isBlocked: Bool
     var dailyLimit: TimeInterval // en secondes
     var timeSpent: TimeInterval // en secondes
+    var applicationTokenData: Data? // Token de l'application pour le blocage (codé en Data)
     
-    init(id: String = UUID().uuidString, name: String, bundleId: String, isBlocked: Bool = false, dailyLimit: TimeInterval = 0, timeSpent: TimeInterval = 0) {
+    // Propriétés calculées non-Codable
+    enum CodingKeys: String, CodingKey {
+        case id, name, bundleId, isBlocked, dailyLimit, timeSpent, applicationTokenData
+    }
+    
+    init(id: String = UUID().uuidString, name: String, bundleId: String, isBlocked: Bool = false, dailyLimit: TimeInterval = 0, timeSpent: TimeInterval = 0, applicationTokenData: Data? = nil) {
         self.id = id
         self.name = name
         self.bundleId = bundleId
         self.isBlocked = isBlocked
         self.dailyLimit = dailyLimit
         self.timeSpent = timeSpent
+        self.applicationTokenData = applicationTokenData
     }
 }
 
