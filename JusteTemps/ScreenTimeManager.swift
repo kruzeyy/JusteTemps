@@ -105,8 +105,11 @@ class ScreenTimeManager: ObservableObject {
     
     // Démarrer le rafraîchissement périodique des données
     private func startPeriodicDataRefresh() {
-        // Rafraîchir les données toutes les 5 minutes
-        Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        // Charger immédiatement les données au démarrage
+        loadRealScreenTimeData()
+        
+        // Rafraîchir les données toutes les 30 secondes pour avoir les données à jour
+        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self = self, self.screenTimeAuthorizationStatus == .approved else { return }
             // Recharger les données depuis UserDefaults
             self.loadRealScreenTimeData()
@@ -451,24 +454,32 @@ class ScreenTimeManager: ObservableObject {
     }
     
     // Charger les vraies données de temps d'écran
-    private func loadRealScreenTimeData() {
+    func loadRealScreenTimeData() {
         // Essayer de charger depuis UserDefaults partagé (si App Groups est configuré)
         // Sinon utiliser UserDefaults standard
-        // Utiliser un fallback silencieux pour éviter les warnings système
-        let sharedDefaults: UserDefaults
-        if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
-            sharedDefaults = suiteDefaults
-        } else {
-            sharedDefaults = userDefaults
+        guard let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") else {
+            print("⚠️ App Group non disponible, utilisation de UserDefaults standard")
+            return
         }
         
         // Charger les données sauvegardées depuis l'extension DeviceActivityReport
-        if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {
+        if let totalTime = suiteDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {
+            let minutes = Int(totalTime) / 60
+            let hours = minutes / 60
+            let remainingMinutes = minutes % 60
+            print("✅ Données réelles chargées depuis realScreenTimeToday: \(hours)h\(remainingMinutes)m (\(totalTime) secondes)")
             updateScreenTimeFromDeviceActivity(totalTime: totalTime)
-        } else if let totalTime = sharedDefaults.object(forKey: "totalScreenTimeToday") as? TimeInterval, totalTime > 0 {
+        } else if let totalTime = suiteDefaults.object(forKey: "totalScreenTimeToday") as? TimeInterval, totalTime > 0 {
             // Fallback : données collectées par le monitor
+            let minutes = Int(totalTime) / 60
+            let hours = minutes / 60
+            let remainingMinutes = minutes % 60
+            print("✅ Données chargées depuis totalScreenTimeToday: \(hours)h\(remainingMinutes)m (\(totalTime) secondes)")
             updateScreenTimeFromDeviceActivity(totalTime: totalTime)
         } else {
+            // Pas de données encore disponibles - c'est normal au démarrage
+            // Les données seront disponibles après que l'extension DeviceActivityReport ait collecté les données
+            print("ℹ️ Aucune donnée Screen Time disponible encore. Les données seront disponibles une fois collectées par l'extension.")
             // Si pas de données sauvegardées, essayer de lire depuis Screen Time directement
             Task {
                 await fetchRealScreenTimeFromSystem()

@@ -24,52 +24,62 @@ struct ScreenTimeView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                // Fond coloré pour la page
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                    .frame(height: 0)
-                // Afficher la vue d'autorisation si l'autorisation n'est pas accordée
-                if screenTimeManager.screenTimeAuthorizationStatus != .approved {
+            ZStack {
+                // Fond dégradé (même style que LoginView)
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    // Afficher la vue d'autorisation si l'autorisation n'est pas accordée
+                    if screenTimeManager.screenTimeAuthorizationStatus != .approved {
                     ScreenTimeAuthorizationView()
                         .environmentObject(screenTimeManager)
                         .padding(.top, 50.0)
                 } else {
                     VStack(spacing: 30) {
-                        // En-tête avec logo
+                        // En-tête avec logo (même style que LoginView)
                         VStack(spacing: 10) {
-                            // Logo
+                            // Logo personnalisé
                             if UIImage(named: "AppLogo") != nil {
                                 Image("AppLogo")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 60, height: 60)
-                                    .cornerRadius(12)
+                                    .frame(width: 80, height: 80)
+                                    .cornerRadius(16)
                                     .padding(.bottom, 5)
                             }
                             
                             Text("JusteTemps")
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
+                                .font(.system(size: 40, weight: .bold))
+                                .foregroundColor(.white)
                             
                             Text("Gérez votre temps d'écran")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.white.opacity(0.9))
                         }
                         .padding(.top, 20)
+                        .padding(.bottom, 20)
                     
-                    // Carte principale du temps d'écran
+                    // Carte principale du temps d'écran avec gradient vibrant
                     VStack(spacing: 20) {
                         // Temps d'écran total
                         VStack(spacing: 8) {
                             Text("Temps d'écran aujourd'hui")
                                 .font(.headline)
-                                .foregroundColor(.white.opacity(0.9))
+                                .foregroundColor(.white)
                             
                             // Afficher les vraies données si l'autorisation est accordée
                             if screenTimeManager.screenTimeAuthorizationStatus == .approved {
                                 RealScreenTimeText(screenTimeManager: screenTimeManager)
                                     .foregroundColor(.white)
+                                    .onAppear {
+                                        // Forcer le rechargement des données quand la vue apparaît
+                                        screenTimeManager.loadRealScreenTimeData()
+                                    }
                             } else {
                                 Text(screenTimeManager.formatTime(screenTimeManager.totalScreenTime))
                                     .font(.system(size: 48, weight: .bold))
@@ -78,14 +88,21 @@ struct ScreenTimeView: View {
                             
                             // Indicateur si les données sont réelles
                             if screenTimeManager.screenTimeAuthorizationStatus == .approved {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 6) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                        .foregroundColor(.white)
                                         .font(.caption)
                                     Text("Données réelles Screen Time")
                                         .font(.caption)
-                                        .foregroundColor(.green)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
                                 }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.green.opacity(0.3))
+                                )
                                 .padding(.top, 4)
                             }
                         }
@@ -115,10 +132,10 @@ struct ScreenTimeView: View {
                                         .fill(
                                             LinearGradient(
                                                 colors: progress >= 1.0 
-                                                    ? [Color.red.opacity(0.9), Color.red.opacity(0.7)]  // Rouge si limite dépassée
+                                                    ? [Color.red.opacity(0.9), Color.red.opacity(0.7)]
                                                     : progress >= 0.8 
-                                                        ? [Color.orange.opacity(0.9), Color.orange.opacity(0.7)]  // Orange si proche de la limite
-                                                        : [Color.white.opacity(0.9), Color.white.opacity(0.7)],  // Blanc sinon
+                                                        ? [Color.orange.opacity(0.9), Color.orange.opacity(0.7)]
+                                                        : [Color.white.opacity(0.9), Color.white.opacity(0.7)],
                                                 startPoint: .leading,
                                                 endPoint: .trailing
                                             )
@@ -144,36 +161,60 @@ struct ScreenTimeView: View {
                             }
                         }
                     }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(20)
-                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    .padding(24)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.5, green: 0.4, blue: 0.9),   // Violet clair
+                                Color(red: 0.4, green: 0.5, blue: 1.0),   // Bleu-violet
+                                Color(red: 0.6, green: 0.45, blue: 0.95)  // Violet moyen
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(25)
+                    .shadow(color: Color.purple.opacity(0.5), radius: 15, x: 0, y: 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 25)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.4), Color.white.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    )
                     
                     // Statistiques des applications
                     VStack(alignment: .leading, spacing: 15) {
                         HStack {
                             Text("Applications les plus utilisées")
                                 .font(.headline)
-                                .foregroundColor(.primary)
+                                .foregroundColor(.white)
                             
                             Spacer()
                         }
                         
-                        ForEach(topAppsByUsage) { app in
-                            AppUsageRow(app: app)
+                        ForEach(Array(topAppsByUsage.enumerated()), id: \.element.id) { index, app in
+                            AppUsageRow(app: app, colorIndex: index)
                                 .environmentObject(screenTimeManager)
                         }
                     }
                     .padding()
                     .background(
                         LinearGradient(
-                            colors: [Color.orange.opacity(0.15), Color.pink.opacity(0.1)],
+                            colors: [
+                                Color(red: 0.6, green: 0.4, blue: 0.9).opacity(0.8),   // Violet-rose
+                                Color(red: 0.7, green: 0.5, blue: 0.85).opacity(0.8)  // Rose-violet clair
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .cornerRadius(20)
-                    .shadow(color: Color.orange.opacity(0.2), radius: 10, x: 0, y: 5)
+                    .shadow(color: Color.purple.opacity(0.3), radius: 10, x: 0, y: 5)
                     
                     // Bouton pour ouvrir les paramètres Screen Time
                     Button(action: {
@@ -187,14 +228,16 @@ struct ScreenTimeView: View {
                         .padding()
                         .background(
                             LinearGradient(
-                                colors: [Color.blue, Color.cyan],
+                                colors: [
+                                    Color(red: 0.4, green: 0.5, blue: 1.0).opacity(0.9),  // Bleu-violet
+                                    Color(red: 0.5, green: 0.4, blue: 0.95).opacity(0.9) // Violet-bleu
+                                ],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .foregroundColor(.white)
-                        .cornerRadius(15)
-                        .shadow(color: Color.blue.opacity(0.3), radius: 8, x: 0, y: 4)
+                        .cornerRadius(12)
                     }
                     .padding(.horizontal)
                     
@@ -202,27 +245,31 @@ struct ScreenTimeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("💡 Astuce")
                             .font(.headline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(.white)
                         
                         Text("Pour bloquer réellement des applications, utilisez les paramètres Screen Time d'iOS. Cette application vous aide à suivre et gérer votre utilisation.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.white.opacity(0.9))
                     }
                     .padding()
                     .background(
                         LinearGradient(
-                            colors: [Color.green.opacity(0.1), Color.mint.opacity(0.1)],
+                            colors: [
+                                Color(red: 0.45, green: 0.55, blue: 0.95).opacity(0.8),  // Bleu moyen
+                                Color(red: 0.5, green: 0.45, blue: 0.9).opacity(0.8)    // Violet-bleu
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .cornerRadius(15)
-                    .shadow(color: Color.green.opacity(0.15), radius: 5, x: 0, y: 2)
+                    .cornerRadius(20)
+                    .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
                     }
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.bottom, 30)
+                }
                 }
             }
-            .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -269,41 +316,35 @@ struct ScreenTimeView: View {
         }
     }
     
-    var progressColor: Color {
-        if progress >= 1.0 {
-            return .red
-        } else if progress >= 0.8 {
-            return .orange
-        } else {
-            return .blue
-        }
-    }
 }
 
 struct AppUsageRow: View {
     let app: AppInfo
+    let colorIndex: Int
     @EnvironmentObject var screenTimeManager: ScreenTimeManager
     
     var body: some View {
-        HStack {
-            // Icône de l'application (simulée)
+        HStack(spacing: 14) {
+            // Icône de l'application avec gradient coloré
+            ZStack {
             Circle()
-                .fill(Color.blue.opacity(0.2))
+                .fill(Color.white.opacity(0.3))
                 .frame(width: 40, height: 40)
-                .overlay(
-                    Text(String(app.name.prefix(1)))
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                )
+                
+                Text(String(app.name.prefix(1)))
+                    .font(.headline)
+                    .foregroundColor(.white)
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(app.name)
                     .font(.body)
                     .fontWeight(.medium)
+                    .foregroundColor(.white)
                 
                 Text(screenTimeManager.formatTime(screenTimeManager.getAppTimeToday(app)))
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white.opacity(0.8))
             }
             
             Spacer()
@@ -505,36 +546,66 @@ struct ScreenTimeAuthorizationView: View {
 struct RealScreenTimeText: View {
     @ObservedObject var screenTimeManager: ScreenTimeManager
     @State private var realTotalTime: TimeInterval = 0
+    @State private var refreshTimer: Timer?
+    
+    // UserDefaults partagé pour lire les données de l'extension
+    private var sharedDefaults: UserDefaults? {
+        UserDefaults(suiteName: "group.com.justetemps.app")
+    }
     
     var body: some View {
         Text(screenTimeManager.formatTime(realTotalTime > 0 ? realTotalTime : screenTimeManager.totalScreenTime))
             .font(.system(size: 48, weight: .bold))
-            .foregroundColor(.primary)
+            .foregroundColor(.white)
             .onAppear {
-                loadRealData()
+                setupDataRefresh()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScreenTimeDataUpdated"))) { _ in
-                loadRealData()
+            .onDisappear {
+                refreshTimer?.invalidate()
+            }
+            // Ne pas utiliser UserDefaults.didChangeNotification avec App Groups
+            // car cela peut causer des warnings système. On utilise plutôt un Timer.
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ScreenTimeDataUpdated"))) { notification in
+                // Mettre à jour quand une notification est reçue avec les nouvelles données
+                if let totalTime = notification.userInfo?["totalTime"] as? TimeInterval {
+                    realTotalTime = totalTime
+                } else {
+                    loadRealData()
+                }
             }
     }
     
+    private func setupDataRefresh() {
+        // Charger immédiatement
+        loadRealData()
+        
+        // Rafraîchir toutes les 30 secondes pour avoir les données à jour
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+            loadRealData()
+        }
+    }
+    
     private func loadRealData() {
-        // Charger depuis UserDefaults partagé (sauvegardé par l'extension DeviceActivityReport)
-        // Utiliser un fallback silencieux pour éviter les warnings système
-        let sharedDefaults: UserDefaults
-        if let suiteDefaults = UserDefaults(suiteName: "group.com.justetemps.app") {
-            sharedDefaults = suiteDefaults
-        } else {
-            sharedDefaults = UserDefaults.standard
+        guard let sharedDefaults = sharedDefaults else {
+            // Si l'App Group n'est pas disponible, ne rien faire (éviter les warnings)
+            return
         }
         
-        // Essayer d'abord les vraies données depuis l'extension
+        // Essayer d'abord les vraies données depuis l'extension DeviceActivityReport
         if let totalTime = sharedDefaults.object(forKey: "realScreenTimeToday") as? TimeInterval, totalTime > 0 {
-            realTotalTime = totalTime
+            DispatchQueue.main.async {
+                self.realTotalTime = totalTime
+                // Mettre à jour aussi le ScreenTimeManager pour la synchronisation
+                self.screenTimeManager.updateRealScreenTime(totalTime: totalTime)
+            }
         } else if let totalTime = sharedDefaults.object(forKey: "totalScreenTimeToday") as? TimeInterval, totalTime > 0 {
-            // Fallback : données collectées par le monitor
-            realTotalTime = totalTime
+            // Fallback : données collectées par le monitor DeviceActivityMonitor
+            DispatchQueue.main.async {
+                self.realTotalTime = totalTime
+                self.screenTimeManager.updateRealScreenTime(totalTime: totalTime)
+            }
         }
+        // Si aucune donnée n'est disponible, garder la valeur par défaut (0)
     }
 }
 
@@ -542,4 +613,6 @@ struct RealScreenTimeText: View {
     ScreenTimeView()
         .environmentObject(ScreenTimeManager())
 }
+
+
 

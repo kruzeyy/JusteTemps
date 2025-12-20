@@ -8,96 +8,156 @@ struct AppBlockView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 30) {
-                // Icône et description
-                VStack(spacing: 15) {
-                    Image(systemName: "app.badge.checkmark")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
-                    
-                    Text("Bloquer des applications")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Sélectionnez les applications que vous souhaitez bloquer pour limiter votre temps d'écran")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.top, 60)
-                
-                Spacer()
-                
-                // Bouton principal pour bloquer des applications
-                Button(action: {
-                    showingAppPicker = true
-                }) {
-                    HStack {
-                        Image(systemName: "lock.fill")
-                            .font(.title3)
-                        Text("Bloquer des applications")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        LinearGradient(
-                            colors: [Color.red, Color.orange],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(15)
-                    .shadow(color: Color.red.opacity(0.3), radius: 10, x: 0, y: 5)
-                }
-                .padding(.horizontal, 30)
-                
-                // Bouton pour débloquer toutes les applications
-                Button(action: {
-                    screenTimeManager.unblockAllApps()
-                }) {
-                    HStack {
-                        Image(systemName: "lock.open.fill")
-                            .font(.title3)
-                        Text("Débloquer toutes les applications")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.systemGray5))
-                    .foregroundColor(.primary)
-                    .cornerRadius(15)
-                }
-                .padding(.horizontal, 30)
-                
-                // Bouton pour configurer Screen Time
-                Button(action: {
-                    screenTimeManager.openScreenTimeSettings()
-                }) {
-                    HStack {
-                        Image(systemName: "gear")
-                        Text("Configurer Screen Time")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(.systemGray5))
-                    .foregroundColor(.primary)
-                    .cornerRadius(15)
-                }
-                .padding(.horizontal, 30)
-                .padding(.bottom, 40)
-            }
-            .background(
+            ZStack {
+                // Fond dégradé (même style que LoginView)
                 LinearGradient(
-                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.8)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-            )
-            .navigationTitle("Applications")
+                
+                ScrollView {
+                    VStack(spacing: 30) {
+                        // En-tête avec logo (même style que ScreenTimeView)
+                        VStack(spacing: 10) {
+                            // Logo personnalisé
+                            if UIImage(named: "AppLogo") != nil {
+                                Image("AppLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 80, height: 80)
+                                    .cornerRadius(16)
+                                    .padding(.bottom, 5)
+                            }
+                            
+                            Text("Applications")
+                                .font(.system(size: 40, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            Text("Bloquez les applications pour limiter votre temps d'écran")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(.top, 20)
+                        .padding(.bottom, 20)
+                        
+                        // Bouton principal pour bloquer des applications
+                        Button(action: {
+                            showingAppPicker = true
+                        }) {
+                            HStack {
+                                Image(systemName: "lock.fill")
+                                    .font(.title3)
+                                Text("Bloquer des applications")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 1.0, green: 0.4, blue: 0.4),   // Rouge vif
+                                        Color(red: 1.0, green: 0.6, blue: 0.3)    // Orange
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(15)
+                            .shadow(color: Color.red.opacity(0.4), radius: 12, x: 0, y: 6)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Bouton pour débloquer toutes les applications
+                        Button(action: {
+                            screenTimeManager.unblockAllApps()
+                        }) {
+                            HStack {
+                                Image(systemName: "lock.open.fill")
+                                    .font(.title3)
+                                Text("Débloquer toutes les applications")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.2, green: 0.8, blue: 0.4),   // Vert vif
+                                        Color(red: 0.3, green: 0.9, blue: 0.5)    // Vert clair
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(15)
+                            .shadow(color: Color.green.opacity(0.4), radius: 12, x: 0, y: 6)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Bouton pour configurer Screen Time
+                        Button(action: {
+                            screenTimeManager.openScreenTimeSettings()
+                        }) {
+                            HStack {
+                                Image(systemName: "gear")
+                                Text("Configurer Screen Time")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.4, green: 0.5, blue: 1.0).opacity(0.9),  // Bleu-violet
+                                        Color(red: 0.5, green: 0.4, blue: 0.95).opacity(0.9) // Violet-bleu
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(15)
+                            .shadow(color: Color.blue.opacity(0.4), radius: 12, x: 0, y: 6)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Informations
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("💡 Note")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Text("Utilisez le bouton 'Bloquer des applications' pour sélectionner les applications à restreindre via Screen Time. iOS affichera un écran de blocage lorsque vous tenterez d'ouvrir une application bloquée.")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.45, green: 0.55, blue: 0.95).opacity(0.8),  // Bleu moyen
+                                    Color(red: 0.5, green: 0.45, blue: 0.9).opacity(0.8)    // Violet-bleu
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .cornerRadius(20)
+                        .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .padding(.horizontal)
+                        .padding(.bottom, 30)
+                    }
+                    .padding(.vertical)
+                }
+            }
+            .navigationTitle("")
+            .navigationBarHidden(true)
             .familyActivityPicker(isPresented: $showingAppPicker, selection: $selectedActivity)
             .onChange(of: selectedActivity) { oldValue, newValue in
                 // Quand l'utilisateur sélectionne des applications

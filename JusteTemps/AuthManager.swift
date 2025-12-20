@@ -29,10 +29,20 @@ class AuthManager: ObservableObject {
             for await (event, _) in await client.auth.authStateChanges {
                 switch event {
                 case .initialSession, .signedIn:
+                    // Ajouter un petit délai pour s'assurer que la session est bien créée
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconde
                     await loadUserFromSupabase()
                 case .signedOut:
+                    // Ne pas appeler signOut() ici pour éviter la récursion
+                    // Réinitialiser directement l'état
                     await MainActor.run {
-                        self.signOut()
+                        self.currentUser = nil
+                        self.isAuthenticated = false
+                        self.errorMessage = nil
+                        self.isLoading = false
+                        self.userDefaults.removeObject(forKey: self.authKey)
+                        self.userDefaults.removeObject(forKey: self.userKey)
+                        self.userDefaults.synchronize()
                     }
                 case .tokenRefreshed:
                     await loadUserFromSupabase()
@@ -41,8 +51,15 @@ class AuthManager: ObservableObject {
                 case .passwordRecovery:
                     break
                 case .userDeleted:
+                    // Réinitialiser directement l'état sans appeler signOut()
                     await MainActor.run {
-                        self.signOut()
+                        self.currentUser = nil
+                        self.isAuthenticated = false
+                        self.errorMessage = nil
+                        self.isLoading = false
+                        self.userDefaults.removeObject(forKey: self.authKey)
+                        self.userDefaults.removeObject(forKey: self.userKey)
+                        self.userDefaults.synchronize()
                     }
                 case .mfaChallengeVerified:
                     await loadUserFromSupabase()
@@ -58,8 +75,21 @@ class AuthManager: ObservableObject {
     private func loadUserFromSupabase() async {
         guard let client = supabase.getClient() else { return }
         
+        // Conserver l'état actuel au cas où le chargement échouerait
+        let wasAuthenticated = self.isAuthenticated
+        
         do {
+            // Vérifier qu'une session existe vraiment
             let session = try await client.auth.session
+            
+            // Si pas de session, ne rien faire (ne pas réinitialiser l'état si on était déjà authentifié)
+            guard !session.user.id.uuidString.isEmpty else {
+                if !wasAuthenticated {
+                    print("⚠️ Aucune session utilisateur valide")
+                }
+                return
+            }
+            
             let supabaseUser = session.user
             
             let userEmail = supabaseUser.email ?? {
@@ -111,9 +141,10 @@ class AuthManager: ObservableObject {
                 self.userDefaults.set(encoded, forKey: self.userKey)
             }
         } catch {
-            print("Erreur lors du chargement de l'utilisateur: \(error)")
-            // Si la session n'existe pas encore, garder l'état local actuel
-            // (on a déjà créé l'utilisateur localement dans le callback)
+            print("⚠️ Erreur lors du chargement de l'utilisateur: \(error.localizedDescription)")
+            // Ne PAS réinitialiser l'état si on était déjà authentifié
+            // Cela évite le flash de déconnexion après une connexion récente
+            // Si la session n'existe pas encore temporairement, on garde l'état local actuel
         }
     }
     
@@ -158,7 +189,11 @@ class AuthManager: ObservableObject {
         }
         
         do {
-            let session = try await client.auth.signIn(email: email, password: password)
+            // Normaliser l'email (trim et lowercase)
+            let emailTrimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            print("📧 Tentative de connexion avec l'email: \(emailTrimmed)")
+            
+            let session = try await client.auth.signIn(email: emailTrimmed, password: password)
             
             // Utiliser directement la session retournée pour créer l'utilisateur
             let supabaseUser = session.user
@@ -214,7 +249,15 @@ class AuthManager: ObservableObject {
         } catch {
             await MainActor.run {
                 self.isLoading = false
-                self.errorMessage = "Erreur de connexion: \(error.localizedDescription)"
+                // Améliorer le message d'erreur pour les emails invalides
+                let errorMessage = error.localizedDescription.lowercased()
+                if errorMessage.contains("invalid") && errorMessage.contains("email") {
+                    self.errorMessage = "Email invalide. Vérifiez que votre adresse email est correcte."
+                } else if errorMessage.contains("invalid login credentials") || errorMessage.contains("invalid credentials") {
+                    self.errorMessage = "Email ou mot de passe incorrect."
+                } else {
+                    self.errorMessage = "Erreur de connexion: \(error.localizedDescription)"
+                }
             }
             throw error
         }
@@ -236,8 +279,23 @@ class AuthManager: ObservableObject {
         }
         
         do {
+            // Vérifier le format de l'email avant d'envoyer à Supabase
+            let emailTrimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Validation basique de l'email
+            let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+            let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+            guard emailPredicate.evaluate(with: emailTrimmed) else {
+                await MainActor.run {
+                    self.isLoading = false
+                    self.errorMessage = "Format d'email invalide. Vérifiez votre adresse email."
+                }
+                throw AuthError.invalidEmail
+            }
+            
+            print("📧 Tentative d'inscription avec l'email: \(emailTrimmed)")
+            
             let session = try await client.auth.signUp(
-                email: email,
+                email: emailTrimmed,
                 password: password,
                 data: [
                     "full_name": .string(name),
@@ -306,9 +364,35 @@ class AuthManager: ObservableObject {
                 }
             }
         } catch {
+            // Logger l'erreur complète pour le débogage
+            print("❌ Erreur lors de l'inscription: \(error)")
+            if let supabaseError = error as? AuthError {
+                print("   Type d'erreur Auth: \(supabaseError)")
+            }
+            
+            // Préparer l'email trimmed pour le message d'erreur
+            let emailTrimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            
             await MainActor.run {
                 self.isLoading = false
-                self.errorMessage = "Erreur d'inscription: \(error.localizedDescription)"
+                // Améliorer le message d'erreur pour les emails invalides
+                let errorMessage = error.localizedDescription.lowercased()
+                let errorString = String(describing: error).lowercased()
+                
+                // Vérifier si c'est une erreur API spécifique de Supabase
+                if errorString.contains("api") && errorString.contains("email") && errorString.contains("invalid") {
+                    self.errorMessage = "Supabase rejette cet email comme invalide. Essayez avec un autre fournisseur d'email (Gmail, Outlook) ou contactez le support."
+                } else if errorMessage.contains("invalid") && errorMessage.contains("email") || errorString.contains("invalid") && errorString.contains("email") {
+                    self.errorMessage = "Email invalide. L'adresse \(emailTrimmed) semble invalide. Vérifiez qu'elle est correcte."
+                } else if errorMessage.contains("user already registered") || errorMessage.contains("already registered") || errorString.contains("already registered") {
+                    self.errorMessage = "Un compte existe déjà avec cet email. Connectez-vous à la place."
+                } else if errorMessage.contains("password") || errorString.contains("password") {
+                    self.errorMessage = "Le mot de passe doit contenir au moins 6 caractères."
+                } else {
+                    // Afficher le message d'erreur complet pour aider au débogage
+                    self.errorMessage = "Erreur d'inscription: \(error.localizedDescription)"
+                    print("   Message d'erreur affiché: \(error.localizedDescription)")
+                }
             }
             throw error
         }
@@ -489,24 +573,26 @@ class AuthManager: ObservableObject {
     
     // Déconnexion
     func signOut() {
+        // Réinitialiser immédiatement l'état pour que l'UI se mette à jour
+        Task { @MainActor in
+            // Réinitialiser complètement l'état d'authentification
+            self.currentUser = nil
+            self.isAuthenticated = false
+            self.errorMessage = nil
+            self.isLoading = false
+            
+            // Nettoyer UserDefaults
+            self.userDefaults.removeObject(forKey: self.authKey)
+            self.userDefaults.removeObject(forKey: self.userKey)
+            
+            // Synchroniser pour s'assurer que les changements sont persistés
+            self.userDefaults.synchronize()
+        }
+        
+        // Ensuite déconnecter de Supabase (en arrière-plan)
         Task {
             if let client = supabase.getClient() {
                 try? await client.auth.signOut()
-            }
-            
-            await MainActor.run {
-                // Réinitialiser complètement l'état d'authentification
-                self.currentUser = nil
-                self.isAuthenticated = false
-                self.errorMessage = nil
-                self.isLoading = false
-                
-                // Nettoyer UserDefaults
-                self.userDefaults.removeObject(forKey: self.authKey)
-                self.userDefaults.removeObject(forKey: self.userKey)
-                
-                // Synchroniser pour s'assurer que les changements sont persistés
-                self.userDefaults.synchronize()
             }
         }
     }

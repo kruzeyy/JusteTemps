@@ -1,6 +1,7 @@
 import SwiftUI
 import AuthenticationServices
 
+
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var email = ""
@@ -59,10 +60,11 @@ struct LoginView: View {
                                     .foregroundColor(.gray)
                                     .frame(width: 20)
                                 
-                                TextField("Nom", text: $name)
-                                    .textContentType(.name)
-                                    .autocapitalization(.words)
-                                    .foregroundColor(.black)
+                            TextField("", text: $name, prompt: Text("Nom").foregroundColor(.black))
+                                .textContentType(.name)
+                                .autocapitalization(.words)
+                                .foregroundColor(.black)
+                                .tint(.black)
                             }
                             .padding()
                             .background(Color.white)
@@ -75,11 +77,12 @@ struct LoginView: View {
                                 .foregroundColor(.gray)
                                 .frame(width: 20)
                             
-                            TextField("Email", text: $email)
+                            TextField("", text: $email, prompt: Text("Email").foregroundColor(.black))
                                 .textContentType(.emailAddress)
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .foregroundColor(.black)
+                                .tint(.black)
                         }
                         .padding()
                         .background(Color.white)
@@ -92,13 +95,15 @@ struct LoginView: View {
                                 .frame(width: 20)
                             
                             if showPassword {
-                                TextField("Mot de passe", text: $password)
+                                TextField("", text: $password, prompt: Text("Mot de passe").foregroundColor(.black))
                                     .textContentType(isSignUp ? .newPassword : .password)
                                     .foregroundColor(.black)
+                                    .tint(.black)
                             } else {
-                                SecureField("Mot de passe", text: $password)
+                                SecureField("", text: $password, prompt: Text("Mot de passe").foregroundColor(.black))
                                     .textContentType(isSignUp ? .newPassword : .password)
                                     .foregroundColor(.black)
+                                    .tint(.black)
                             }
                             
                             Button(action: {
@@ -247,7 +252,27 @@ struct LoginView: View {
                 }
                 .padding(.vertical, 40)
             }
+            .onAppear {
+                // Réinitialiser les champs et l'état quand la vue apparaît
+                resetForm()
+            }
+            .onChange(of: authManager.isAuthenticated) { oldValue, newValue in
+                // Si on passe de connecté à non connecté, réinitialiser le formulaire
+                if oldValue == true && newValue == false {
+                    resetForm()
+                }
+            }
         }
+    }
+    
+    // Fonction pour réinitialiser le formulaire
+    private func resetForm() {
+        email = ""
+        password = ""
+        name = ""
+        isSignUp = false
+        showPassword = false
+        // Ne pas réinitialiser authManager.errorMessage ici car il peut être utile de l'afficher
     }
 }
 
