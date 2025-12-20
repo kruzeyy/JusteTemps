@@ -284,14 +284,38 @@ struct ScreenTimeView: View {
                                         .aspectRatio(contentMode: .fill)
                                 } placeholder: {
                                     Image(systemName: "person.circle.fill")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.white)
                                 }
-                                .frame(width: 30, height: 30)
+                                .frame(width: 36, height: 36)
                                 .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.5), Color.white.opacity(0.2)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
+                                )
+                                .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                             } else {
                                 Image(systemName: "person.circle.fill")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                                     .font(.title2)
+                                    .background(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.blue.opacity(0.8), Color.purple.opacity(0.8)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                            .frame(width: 36, height: 36)
+                                    )
+                                    .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                             }
                         }
                     }
@@ -302,6 +326,24 @@ struct ScreenTimeView: View {
                         showingLimitSettings = true
                     }) {
                         Image(systemName: "slider.horizontal.3")
+                            .foregroundColor(.white)
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 36, height: 36)
+                            .background(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.25), Color.white.opacity(0.15)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
                     }
                 }
             }
